@@ -11,6 +11,24 @@ struct cpu cpus[NCPU];
 struct proc proc[NPROC];
 
 struct proc *initproc;
+#ifdef FCFS
+int schedulingpolicy = 1;
+#endif
+#ifdef PBS
+int schedulingpolicy = 2;
+#endif
+#ifdef MLFQ
+int schedulingpolicy = 3;
+#endif
+
+// If no scheduling policy is defined, or a non-existing policy is specified
+#ifndef FCFS
+#ifndef PBS
+#ifndef MLFQ
+int schedulingpolicy = 0;
+#endif
+#endif
+#endif
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -140,6 +158,10 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  acquire(&tickslock);
+  p->createtime = ticks;
+  release(&tickslock);
 
   return p;
 }
@@ -428,6 +450,45 @@ wait(uint64 addr)
   }
 }
 
+void
+defaultsched(struct cpu* c) {
+  struct proc *p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state == RUNNABLE) {
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->context, &p->context);
+      c->proc = 0;
+    }
+    release(&p->lock);
+  }
+}
+
+void
+fcfssched(struct cpu* c) {
+  struct proc *p, *bestproc = 0;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state == RUNNABLE) {
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      if (bestproc == 0 || p->createtime < bestproc->createtime)
+        bestproc = p;
+    }
+    release(&p->lock);
+  }
+  if (bestproc == 0) return;
+  acquire(&bestproc->lock);
+  if (bestproc->state == RUNNABLE) {
+    bestproc->state = RUNNING;
+    c->proc = bestproc;
+    swtch(&c->context, &bestproc->context);
+    c->proc = 0;
+  }
+  release(&bestproc->lock);
+}
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -438,30 +499,14 @@ wait(uint64 addr)
 void
 scheduler(void)
 {
-  struct proc *p;
   struct cpu *c = mycpu();
   
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
-    }
+    if (schedulingpolicy == 1) fcfssched(c);
+    else defaultsched(c);
   }
 }
 
