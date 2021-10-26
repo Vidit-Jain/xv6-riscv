@@ -186,6 +186,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->tracemask = 0;
+  p->staticpriority = 60;
   p->state = UNUSED;
 }
 
@@ -699,4 +700,21 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+
+int
+changepriority(int new_priority, int pid) {
+  struct proc *p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->pid == pid) {
+      int old_priority = p->staticpriority;
+      p->staticpriority = new_priority;
+      release(&p->lock);
+      return old_priority;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }

@@ -105,6 +105,7 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
+extern uint64 sys_set_priority(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -129,6 +130,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_trace]   sys_trace,
+[SYS_set_priority] sys_set_priority,
 };
 char* syscallnames[] = {
 [SYS_fork]    "fork",
@@ -153,6 +155,7 @@ char* syscallnames[] = {
 [SYS_mkdir]   "mkdir",
 [SYS_close]   "close",
 [SYS_trace]   "trace",
+[SYS_set_priority] "set_priority",
 };
 struct syscall_info {
   const int argnum;
@@ -182,6 +185,7 @@ int syscallargc[] = {
 [SYS_mkdir] 1,
 [SYS_close] 1,
 [SYS_trace] 1,
+[SYS_set_priority] 2,
 };
 
 void
@@ -192,6 +196,10 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    int firstarg;
+    if (argint(0, &firstarg) < 0) {
+      return;
+    }
     p->trapframe->a0 = syscalls[num]();
     if ((p->tracemask) & (1 << num)) {
       printf("%d: syscall %s (", p->pid, syscallnames[num]);
@@ -200,6 +208,7 @@ syscall(void)
         if (argint(i, &argument) < 0) {
           break;
         }
+        if (i == 0) argument = firstarg;
         printf("%d", argument);
         // Don't print space if it's the last argument
         if (i != syscallargc[num] - 1)
