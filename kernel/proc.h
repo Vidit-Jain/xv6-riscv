@@ -94,7 +94,10 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
   int staticpriority;          // Static priority of the process
-
+  uint scheduletick;           // Stores the tick on which the process was last scheduled
+  uint runningticks;           // Stores the number of ticks it was running since last scheduled
+  uint sleepingticks;          // Stores the number of ticks it was sleeping since last scheduled
+  int schedulecount;
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
 

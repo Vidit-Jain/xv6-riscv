@@ -7,7 +7,6 @@ int
 main(int argc, char* argv[]) {
 
     int mask = atoi(argv[1]);
-
     // Set trace with the given mask for the current process
     trace(mask);
     // Execute the command to be straced

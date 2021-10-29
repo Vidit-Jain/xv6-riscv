@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+#define max(a,b) (a > b) ? (a) : (b)
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -187,6 +187,10 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->tracemask = 0;
   p->staticpriority = 60;
+  p->scheduletick = 0;
+  p->runningticks = 0;
+  p->sleepingticks = 0;
+  p->schedulecount = 0;
   p->state = UNUSED;
 }
 
@@ -450,17 +454,37 @@ wait(uint64 addr)
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
 }
-
+void
+updatetime() {
+  struct proc* p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state == RUNNING)
+      p->runningticks++;
+    if (p->state == SLEEPING)
+      p->sleepingticks++;
+    release(&p->lock);
+  }
+}
+// Lock process p before calling function
+void
+runprocess(struct proc* p, struct cpu* c) {
+  p->state = RUNNING;
+  p->scheduletick = ticks;
+  p->runningticks = 0;
+  p->sleepingticks = 0;
+  p->schedulecount++;
+  c->proc = p;
+  swtch(&c->context, &p->context);
+  c->proc = 0;
+}
 void
 defaultsched(struct cpu* c) {
   struct proc *p;
   for (p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if (p->state == RUNNABLE) {
-      p->state = RUNNING;
-      c->proc = p;
-      swtch(&c->context, &p->context);
-      c->proc = 0;
+      runprocess(p, c);
     }
     release(&p->lock);
   }
@@ -470,23 +494,85 @@ void
 fcfssched(struct cpu* c) {
   struct proc *p, *bestproc = 0;
   for (p = proc; p < &proc[NPROC]; p++) {
+    int changed = 0;
     acquire(&p->lock);
     if (p->state == RUNNABLE) {
       // Switch to chosen process.  It is the process's job
       // to release its lock and then reacquire it
       // before jumping back to us.
-      if (bestproc == 0 || p->createtime < bestproc->createtime)
+      if (bestproc == 0) {
         bestproc = p;
+      }
+      else {
+        acquire(&bestproc->lock);
+        if (p->createtime < bestproc->createtime){
+          bestproc = p;
+          changed = 1;
+        }
+        release(&bestproc->lock);
+      }
     }
-    release(&p->lock);
+    if (!changed)
+      release(&p->lock);
   }
   if (bestproc == 0) return;
   acquire(&bestproc->lock);
   if (bestproc->state == RUNNABLE) {
-    bestproc->state = RUNNING;
-    c->proc = bestproc;
-    swtch(&c->context, &bestproc->context);
-    c->proc = 0;
+    runprocess(bestproc, c);
+  }
+  release(&bestproc->lock);
+}
+// Lock before calling this function
+int
+niceness(struct proc* p) {
+  uint totalticks = p->runningticks + p->sleepingticks;
+  if (totalticks == 0)
+    return 5;
+
+  return (p->sleepingticks * 10) / totalticks;
+}
+int swapprocess(struct proc* p, struct proc *q) {
+  int dynamiccurrent = max(0, p->staticpriority - niceness(p) + 5);
+  int dynamicbest = max(0, q->staticpriority - niceness(q) + 5);
+
+  if (dynamiccurrent < dynamicbest) {
+    return 1;
+  }
+  else if (dynamiccurrent == dynamicbest && p->schedulecount < q->schedulecount) {
+    return 1;
+  }
+  else if (dynamiccurrent == dynamicbest && p->schedulecount == q->schedulecount && p->createtime < q->createtime) {
+    return 1;
+  }
+  return 0;
+}
+void
+pbssched(struct cpu* c) {
+  struct proc *p, *bestproc = 0;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    int changed = 0;
+    acquire(&p->lock);
+    if (p->state == RUNNABLE) {
+      if (bestproc == 0) {
+        bestproc = p;
+      }
+      else {
+        acquire(&bestproc->lock);
+        if (swapprocess(proc, bestproc)) {
+          bestproc = proc;
+          changed = 1;
+        }
+        release(&bestproc->lock);
+      }
+    }
+    if (!changed)
+      release(&p->lock);
+  }
+  if (bestproc == 0)
+    return;
+  acquire(&bestproc->lock);
+  if (bestproc->state == RUNNABLE) {
+    runprocess(bestproc, c);
   }
   release(&bestproc->lock);
 }
@@ -507,6 +593,7 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
     if (schedulingpolicy == 1) fcfssched(c);
+    else if (schedulingpolicy == 2) pbssched(c);
     else defaultsched(c);
   }
 }
