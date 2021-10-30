@@ -163,6 +163,12 @@ found:
   acquire(&tickslock);
   p->createtime = ticks;
   release(&tickslock);
+  p->staticpriority = 60;
+  p->tracemask = 0;
+  p->scheduletick = 0;
+  p->runningticks = 0;
+  p->sleepingticks = 0;
+  p->schedulecount = 0;
 
   return p;
 }
@@ -186,12 +192,6 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
-  p->tracemask = 0;
-  p->staticpriority = 60;
-  p->scheduletick = 0;
-  p->runningticks = 0;
-  p->sleepingticks = 0;
-  p->schedulecount = 0;
   p->state = UNUSED;
 }
 
@@ -769,9 +769,9 @@ procdump(void)
 {
   static char *states[] = {
   [UNUSED]    "unused",
-  [SLEEPING]  "sleep ",
-  [RUNNABLE]  "runble",
-  [RUNNING]   "run   ",
+  [SLEEPING]  "sleeping",
+  [RUNNABLE]  "runnable",
+  [RUNNING]   "running",
   [ZOMBIE]    "zombie"
   };
   struct proc *p;
@@ -785,7 +785,7 @@ procdump(void)
   }
   printf("State\t");
   if (schedulingpolicy == 2 || schedulingpolicy == 3) {
-    printf("rtime\twtime\trun\t");
+    printf("\trtime\twtime\tnrun\t");
   }
   if (schedulingpolicy == 3) {
     printf("q0\tq1\tq2\tq3\tq4\t");
@@ -799,11 +799,13 @@ procdump(void)
     else
       state = "???";
     printf("%d\t", p->pid);
-    if (schedulingpolicy == 2 || schedulingpolicy == 3) {
-      printf("%d\t", p->staticpriority);
+    if (schedulingpolicy == 2) {
+      printf("%d\t\t", dynamicpriority(p));
     }
-
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("%s\t", state);
+    if (schedulingpolicy == 2) {
+      printf("%d\t%d\t%d", p->runningticks, p->sleepingticks, p->schedulecount);
+    }
     printf("\n");
   }
 }
