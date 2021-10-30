@@ -196,7 +196,6 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
-  p->queuestate = NOTQUEUED;
 }
 
 // Create a user page table for a given process,
