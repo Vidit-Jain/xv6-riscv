@@ -97,6 +97,7 @@ struct proc {
   uint scheduletick;           // Stores the tick on which the process was last scheduled
   uint runningticks;           // Stores the number of ticks it was running since last scheduled
   uint sleepingticks;          // Stores the number of ticks it was sleeping since last scheduled
+  uint totalrtime;             // Total run time of a process
   int schedulecount;
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

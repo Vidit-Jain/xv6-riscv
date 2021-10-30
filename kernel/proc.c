@@ -169,6 +169,7 @@ found:
   p->runningticks = 0;
   p->sleepingticks = 0;
   p->schedulecount = 0;
+  p->totalrtime = 0;
 
   return p;
 }
@@ -460,8 +461,10 @@ updatetime() {
   struct proc* p;
   for (p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
-    if (p->state == RUNNING)
+    if (p->state == RUNNING) {
       p->runningticks++;
+      p->totalrtime++;
+    }
     if (p->state == SLEEPING)
       p->sleepingticks++;
     release(&p->lock);
@@ -804,7 +807,9 @@ procdump(void)
     }
     printf("%s\t", state);
     if (schedulingpolicy == 2) {
-      printf("%d\t%d\t%d", p->runningticks, p->sleepingticks, p->schedulecount);
+      acquire(&tickslock);
+      printf("%d\t%d\t%d", p->runningticks, ticks - p->createtime - p->totalrtime, p->schedulecount);
+      release(&tickslock);
     }
     printf("\n");
   }
