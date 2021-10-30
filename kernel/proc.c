@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 #define max(a,b) (a > b) ? (a) : (b)
+#define min(a,b) (a < b) ? (a) : (b)
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -502,10 +503,12 @@ fcfssched(struct cpu* c) {
       // before jumping back to us.
       if (bestproc == 0) {
         bestproc = p;
+        changed = 1;
       }
       else {
         acquire(&bestproc->lock);
         if (p->createtime < bestproc->createtime){
+          release(&bestproc->lock);
           bestproc = p;
           changed = 1;
         }
@@ -516,24 +519,25 @@ fcfssched(struct cpu* c) {
       release(&p->lock);
   }
   if (bestproc == 0) return;
-  acquire(&bestproc->lock);
-  if (bestproc->state == RUNNABLE) {
-    runprocess(bestproc, c);
-  }
+
+  runprocess(bestproc, c);
+
   release(&bestproc->lock);
 }
 // Lock before calling this function
 int
-niceness(struct proc* p) {
+dynamicpriority(struct proc* p) {
   uint totalticks = p->runningticks + p->sleepingticks;
-  if (totalticks == 0)
-    return 5;
-
-  return (p->sleepingticks * 10) / totalticks;
+  int nice = 5;
+  if (totalticks != 0)
+    nice = (p->sleepingticks * 10) / totalticks;
+  int a = min(p->staticpriority - nice + 5, 100);
+  int b = max(0, a);
+  return b;
 }
-int swapprocess(struct proc* p, struct proc *q) {
-  int dynamiccurrent = max(0, p->staticpriority - niceness(p) + 5);
-  int dynamicbest = max(0, q->staticpriority - niceness(q) + 5);
+int pbsswap(struct proc* p, struct proc *q) {
+  int dynamiccurrent = dynamicpriority(p);
+  int dynamicbest = dynamicpriority(q);
 
   if (dynamiccurrent < dynamicbest) {
     return 1;
@@ -555,25 +559,22 @@ pbssched(struct cpu* c) {
     if (p->state == RUNNABLE) {
       if (bestproc == 0) {
         bestproc = p;
+        changed = 1;
       }
       else {
         acquire(&bestproc->lock);
-        if (swapprocess(proc, bestproc)) {
+        if (pbsswap(proc, bestproc)) {
+          release(&bestproc->lock);
           bestproc = proc;
           changed = 1;
         }
-        release(&bestproc->lock);
       }
     }
     if (!changed)
       release(&p->lock);
   }
-  if (bestproc == 0)
-    return;
-  acquire(&bestproc->lock);
-  if (bestproc->state == RUNNABLE) {
-    runprocess(bestproc, c);
-  }
+  if (bestproc == 0) return;
+  runprocess(bestproc, c);
   release(&bestproc->lock);
 }
 // Per-CPU process scheduler.
@@ -777,6 +778,19 @@ procdump(void)
   char *state;
 
   printf("\n");
+  //Printing headers
+  printf("PID\t");
+  if (schedulingpolicy == 2 || schedulingpolicy == 3) {
+    printf("Priority\t");
+  }
+  printf("State\t");
+  if (schedulingpolicy == 2 || schedulingpolicy == 3) {
+    printf("rtime\twtime\trun\t");
+  }
+  if (schedulingpolicy == 3) {
+    printf("q0\tq1\tq2\tq3\tq4\t");
+  }
+  printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
@@ -784,6 +798,11 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
+    printf("%d\t", p->pid);
+    if (schedulingpolicy == 2 || schedulingpolicy == 3) {
+      printf("%d\t", p->staticpriority);
+    }
+
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
@@ -794,11 +813,21 @@ int
 changepriority(int new_priority, int pid) {
   struct proc *p;
   for (p = proc; p < &proc[NPROC]; p++) {
+    int toyield = 0;
     acquire(&p->lock);
     if (p->pid == pid) {
       int old_priority = p->staticpriority;
-      p->staticpriority = new_priority;
+      int old_dp = dynamicpriority(p);
+      p->staticpriority = min(100, new_priority);
+      p->runningticks = 0;
+      p->sleepingticks = 0;
+
+      if (dynamicpriority(p) < old_dp) {
+        toyield = 1;
+      }
+
       release(&p->lock);
+      if (toyield) yield();
       return old_priority;
     }
     release(&p->lock);
