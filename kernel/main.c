@@ -26,6 +26,7 @@ main()
     plicinithart();  // ask PLIC for device interrupts
     binit();         // buffer cache
     iinit();         // inode table
+    queuetableinit();// Initializes the queues for the MLFQ scheduler
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
     userinit();      // first user process

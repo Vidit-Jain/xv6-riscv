@@ -82,7 +82,7 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
-
+enum queued {QUEUED, NOTQUEUED};
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -113,4 +113,19 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  enum queued queuestate;
+  int queuelevel;
+  int queueruntime;
+  uint queueentertime;
+
 };
+
+struct Queue {
+  int front, back;
+  struct proc* queue[QSIZE];
+};
+extern struct Queue queuetable[QCOUNT];
+void push(struct Queue* q, struct proc* p);
+struct proc* pop(struct Queue* q);
+void remove(struct Queue* q, struct proc* p);
+int empty(struct Queue q);

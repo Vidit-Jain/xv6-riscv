@@ -8,7 +8,7 @@
 #define max(a,b) (a > b) ? (a) : (b)
 #define min(a,b) (a < b) ? (a) : (b)
 struct cpu cpus[NCPU];
-
+struct Queue queuetable[QCOUNT];
 struct proc proc[NPROC];
 
 struct proc *initproc;
@@ -170,7 +170,9 @@ found:
   p->sleepingticks = 0;
   p->schedulecount = 0;
   p->totalrtime = 0;
-
+  p->queuelevel = 0;
+  p->queuestate = NOTQUEUED;
+  p->queueentertime = 0;
   return p;
 }
 
@@ -194,6 +196,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->queuestate = NOTQUEUED;
 }
 
 // Create a user page table for a given process,
@@ -457,6 +460,13 @@ wait(uint64 addr)
   }
 }
 void
+queuetableinit(void) {
+  for (int i = 0; i < QCOUNT; i++) {
+    queuetable[i].front = 0;
+    queuetable[i].back = 0;
+  }
+}
+void
 updatetime() {
   struct proc* p;
   for (p = proc; p < &proc[NPROC]; p++) {
@@ -464,6 +474,8 @@ updatetime() {
     if (p->state == RUNNING) {
       p->runningticks++;
       p->totalrtime++;
+      if (schedulingpolicy == 3)
+        p->queueruntime++;
     }
     if (p->state == SLEEPING)
       p->sleepingticks++;
@@ -473,13 +485,25 @@ updatetime() {
 // Lock process p before calling function
 void
 runprocess(struct proc* p, struct cpu* c) {
-  p->state = RUNNING;
+
+  acquire(&tickslock);
   p->scheduletick = ticks;
+  p->queueentertime = ticks;
+  release(&tickslock);
+
+  p->queueruntime = 0;
+  p->state = RUNNING;
   p->runningticks = 0;
   p->sleepingticks = 0;
   p->schedulecount++;
   c->proc = p;
+
   swtch(&c->context, &p->context);
+
+  acquire(&tickslock);
+  p->queueentertime = ticks;
+  release(&tickslock);
+
   c->proc = 0;
 }
 void
@@ -526,6 +550,45 @@ fcfssched(struct cpu* c) {
   runprocess(bestproc, c);
 
   release(&bestproc->lock);
+}
+void
+ageprocesses(void) {
+  struct proc* p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    if (p->state == RUNNABLE && ticks >= p->queueentertime + AGE) {
+      remove(&queuetable[p->queuelevel], p);
+      p->queuelevel = max(0, p->queuelevel - 1);
+      p->queueentertime = ticks;
+    }
+  }
+}
+
+void
+mlfqsched(struct cpu* c) {
+  ageprocesses();
+  struct proc* p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    if (p->state == RUNNABLE && p->queuestate == NOTQUEUED) {
+      push(&queuetable[p->queuelevel], p);
+    }
+  }
+
+  struct proc* pp = 0;
+  for (int i = 0; i < QCOUNT; i++) {
+    while (!empty(queuetable[i])) {
+      struct proc *p = pop(&queuetable[i]);
+      if (p->state == RUNNABLE) {
+        pp = p;
+        break;
+      }
+    }
+    if (pp != 0) break;
+  }
+  if (pp == 0) return;
+
+  acquire(&pp->lock);
+  runprocess(pp, c);
+  release(&pp->lock);
 }
 // Lock before calling this function
 int
@@ -598,6 +661,7 @@ scheduler(void)
     intr_on();
     if (schedulingpolicy == 1) fcfssched(c);
     else if (schedulingpolicy == 2) pbssched(c);
+    else if (schedulingpolicy == 3) mlfqsched(c);
     else defaultsched(c);
   }
 }

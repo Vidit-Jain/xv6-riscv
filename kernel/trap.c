@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+#define min(a, b) (a < b) ? (a) : (b)
 struct spinlock tickslock;
 uint ticks;
 
@@ -77,9 +77,22 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && schedulingpolicy != 1 && schedulingpolicy != 2)
-    yield();
+  if(which_dev == 2) {
+    if (schedulingpolicy == 0) {
+      yield();
+    }
+    else if (schedulingpolicy == 3) {
+      struct proc *p = myproc();
+      if (p->queueruntime >= (1 << p->queuelevel)) {
+        p->queuelevel = min(p->queuelevel + 1, QCOUNT);
+        yield();
+      }
+    }
+  }
 
+
+  if (schedulingpolicy == 3) {
+  }
   usertrapret();
 }
 
@@ -150,8 +163,17 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING && schedulingpolicy != 1 && schedulingpolicy != 2)
-    yield();
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING) {
+    if (schedulingpolicy == 0)
+      yield();
+    else if (schedulingpolicy == 3) {
+      struct proc *p = myproc();
+      if (p->queueruntime >= (1 << p->queuelevel)) {
+        p->queuelevel = min(p->queuelevel + 1, QCOUNT);
+        yield();
+      }
+    }
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
