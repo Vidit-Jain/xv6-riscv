@@ -63,17 +63,31 @@
 
 ## CPU Exploitation possibility
 As per the instructions, if a process voluntarily relinquishes control of the CPU before it's time slice is over, on returning the process enters the same queue instead of downgrading in priority.
+
 While this might be logical, and should work for a great percentage of time, there may be people who could be aware of this policy's design, and attempt to exploit it so that their processes get more priority than others, hence getting an unfair share of processing power.
+
 A person who knows how long the time slice is in each priority level, can design a process such that just before the time slice is about to expire, it can ask for a very small I/O request, hence relinquishing itself from the CPU, and rejoining the same priority level very quickly. Hence, it ends up avoiding the downgrade in priority level. Therefore the process can continue to be in the same priority level, taking most of the processor time by this.
 
 For example, say the first priority level has a time slice of 4 ticks. A process can be designed to run for 3 ticks, and then make an I/O request, such as requesting 1 byte from the disk. Hence, the I/O request will be satisfied quickly and it'll be put into the same queue at the end, avoiding the downgrade, and maintaining it's high priority.
 
 One way to counterract this is to not reset the time slice, hence if the process has used 3 ticks, after the I/O request it'll only have one tick left in the priority queue before priority downgrade.
 
-# procdump
+# Specification 3: procdump
 1. procdump just requires a few more variables in `struct proc` to have all the necessary details to display.
 2. Variables like `totalruntime` were implemented to keep track of the total time it has run since its existence. 
 3. pid, state are displayed using the existing variables in `struct proc`
 4. rtime is derived from `totalruntime`, and wtime is derived from the current tick, the create time and the total run time.
 5. nrun is from the `schedulecount` variable.
 6. For q0, q1, q2, q3, q4 an array was implemented for every process to keep track of the time spent in each queue, and was updated with every clock interrupt through `updatetime()`.
+
+### Performance
+The `waitx` and `schedulertest` implementation was used to test the performance of the various scheduling policies implemented.
+
+| Policy  | Average run time  | Average wait time  |
+| :---:   | :-:               | :-:                |
+| Default | 18                | 119                |
+| FCFS    | 64                | 94                 | 
+| PBS     | 38                | 108                |
+| MLFQ    | 28                | 203                | 
+
+The Default, FCFS, PBS policies were run on 3 CPUs, while the MLFQ policy was run on 1 CPU.

@@ -118,6 +118,10 @@ struct proc {
   int queueruntime;
   uint queueentertime;
   uint q[QCOUNT];
+  // For waitx
+  uint rtime;                   // How long the process ran for
+  uint ctime;                   // When was the process created
+  uint etime;                   // When did the process exited
 };
 
 struct Queue {

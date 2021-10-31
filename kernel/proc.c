@@ -171,6 +171,9 @@ found:
   p->queuelevel = 0;
   p->queuestate = NOTQUEUED;
   p->queueentertime = 0;
+  p->rtime = 0;
+  p->etime = 0;
+  p->ctime = ticks;
   for (int i = 0; i < QCOUNT; i++) {
     p->q[i] = 0;
   }
@@ -403,7 +406,7 @@ exit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
-
+  p->etime = ticks;
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
@@ -473,6 +476,7 @@ updatetime() {
     acquire(&p->lock);
     if (p->state == RUNNING) {
       p->runningticks++;
+      p->rtime++;
       p->totalrtime++;
     }
     if (p->state == SLEEPING)
@@ -923,4 +927,52 @@ changepriority(int new_priority, int pid, int* old_dp) {
     release(&p->lock);
   }
   return -1;
+}
+int
+waitx(uint64 addr, uint* rtime, uint* wtime)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+      if(np->parent == p){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&np->lock);
+
+        havekids = 1;
+        if(np->state == ZOMBIE){
+          // Found one.
+          pid = np->pid;
+          *rtime = np->rtime;
+          *wtime = np->etime - np->ctime - np->rtime;
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+                                  sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
 }
