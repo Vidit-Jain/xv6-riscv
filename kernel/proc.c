@@ -569,7 +569,8 @@ void
 ageprocesses(void) {
   struct proc* p;
   for (p = proc; p < &proc[NPROC]; p++) {
-    if (p->state == RUNNABLE && ticks >= p->queueentertime + AGE && p->queuestate == QUEUED) {
+//    if (p->state == RUNNABLE && ticks >= p->queueentertime + AGE && p->queuestate == QUEUED) {
+    if (p->state == RUNNABLE && ticks >= p->queueentertime + AGE) {
       remove(&queuetable[p->queuelevel], p);
       p->queuelevel = max(0, p->queuelevel - 1);
       p->queueentertime = ticks;
