@@ -58,6 +58,7 @@
 10. Goes through the `queuetable` to find the process with the lowes priority value, and the first one among them. It picks this process as the next process to run. 
 11. In `kernel/trap.c`, we only want to preempt the running process if the running time has exceeded `p->queuelevel`. If we need to preempt it, we decrease the priority (by increasing queue level value)
 12. To prevent aging, a function `ageprocesses` is implemented to check the queueentertime of every process every time mlfqsched is called, to check if any process has been waiting for more than `AGE` ticks (which has been set to 64). if so, the priority of that process is increased (decreasing queue level).
+13. To preempt processes when a higher priority process is added to the queue, a function `getpreempt()` checks if the levels above the current processes queuelevel are empty. If any one of them isn't, then we yield in the `usertrap` and `kerneltrap` functions on a timer interrupt.
 
 
 ## CPU Exploitation possibility
@@ -68,3 +69,11 @@ A person who knows how long the time slice is in each priority level, can design
 For example, say the first priority level has a time slice of 4 ticks. A process can be designed to run for 3 ticks, and then make an I/O request, such as requesting 1 byte from the disk. Hence, the I/O request will be satisfied quickly and it'll be put into the same queue at the end, avoiding the downgrade, and maintaining it's high priority.
 
 One way to counterract this is to not reset the time slice, hence if the process has used 3 ticks, after the I/O request it'll only have one tick left in the priority queue before priority downgrade.
+
+# procdump
+1. procdump just requires a few more variables in `struct proc` to have all the necessary details to display.
+2. Variables like `totalruntime` were implemented to keep track of the total time it has run since its existence. 
+3. pid, state are displayed using the existing variables in `struct proc`
+4. rtime is derived from `totalruntime`, and wtime is derived from the current tick, the create time and the total run time.
+5. nrun is from the `schedulecount` variable.
+6. For q0, q1, q2, q3, q4 an array was implemented for every process to keep track of the time spent in each queue, and was updated with every clock interrupt through `updatetime()`.
