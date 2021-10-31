@@ -115,5 +115,7 @@ sys_set_priority(void)
   if (argint(1, &pid) < 0) {
     return -1;
   }
-  return changepriority(new_priority, pid);
+  int old_dp = 0;
+  changepriority(new_priority, pid, &old_dp);
+  return old_dp;
 }

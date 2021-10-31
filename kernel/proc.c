@@ -875,19 +875,19 @@ procdump(void)
 
 
 int
-changepriority(int new_priority, int pid) {
+changepriority(int new_priority, int pid, int* old_dp) {
   struct proc *p;
   for (p = proc; p < &proc[NPROC]; p++) {
     int toyield = 0;
     acquire(&p->lock);
     if (p->pid == pid) {
       int old_priority = p->staticpriority;
-      int old_dp = dynamicpriority(p);
+      *old_dp = dynamicpriority(p);
       p->staticpriority = min(100, new_priority);
       p->runningticks = 0;
       p->sleepingticks = 0;
 
-      if (dynamicpriority(p) < old_dp) {
+      if (dynamicpriority(p) < *old_dp) {
         toyield = 1;
       }
 
