@@ -11,21 +11,25 @@ int main() {
   int n, pid;
   int wtime, rtime;
   int twtime=0, trtime=0;
-  for (n=0; n < NFORK;n++) {
+  for(n=0; n < NFORK;n++) {
       pid = fork();
       if (pid < 0)
           break;
       if (pid == 0) {
+#ifndef FCFS
           if (n < IO) {
             sleep(200); // IO bound processes
           } else {
-            for (int i = 0; i < 10000000; i++) {}; // CPU bound process
+#endif
+            for (volatile int i = 0; i < 1000000000; i++) {} // CPU bound process 
+#ifndef FCFS
           }
-          // printf("Process %d finished", n);
+#endif
+          printf("Process %d finished\n", n);
           exit(0);
       } else {
 #ifdef PBS
-        setpriority(60-IO+n, pid); // Will only matter for PBS, set lower priority for IO bound processes 
+        set_priority(80, pid); // Will only matter for PBS, set lower priority for IO bound processes
 #endif
       }
   }
@@ -36,5 +40,5 @@ int main() {
       } 
   }
   printf("Average rtime %d,  wtime %d\n", trtime / NFORK, twtime / NFORK);
-  return 0;
+  exit(0);
 }

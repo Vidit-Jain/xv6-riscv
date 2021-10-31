@@ -109,6 +109,7 @@ void            updatetime();
 int             dynamicpriority(struct proc* p);
 void            queuetableinit();
 int             getpreempted(int level);
+int             waitx(uint64, uint*, uint*);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

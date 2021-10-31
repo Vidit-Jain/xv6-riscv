@@ -8,12 +8,11 @@
 
 void
 push(struct Queue* q, struct proc* p) {
-//  printf("HELLO\n");
   q->queue[q->front++] = p;
+  q->front %= QSIZE;
   if (q->front == q->back) {
     panic("Full queue push");
   }
-  q->front %= QSIZE;
   p->queuestate = QUEUED;
 }
 
@@ -33,13 +32,13 @@ pop(struct Queue* q)
 void
 remove(struct Queue* q, struct proc* p) {
   if (p->queuestate == NOTQUEUED) return;
-  for (int i = q->back; i != q->front - 1; i = (i + 1) % QSIZE) {
+  for (int i = q->back; i != q->front; i = (i + 1) % QSIZE) {
     if (q->queue[i] == p) {
       p->queuestate = NOTQUEUED;
-      for (int j = i + 1; j != q->front - 1; j = (j + 1) % QSIZE) {
+      for (int j = i + 1; j != q->front; j = (j + 1) % QSIZE) {
         q->queue[(j - 1 + QSIZE) % QSIZE] = q->queue[j];
       }
-      q->front--;
+      q->front = (q->front - 1 + QSIZE) % QSIZE;
       break;
     }
   }
