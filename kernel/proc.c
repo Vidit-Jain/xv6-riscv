@@ -8,7 +8,7 @@
 #define max(a,b) (a > b) ? (a) : (b)
 #define min(a,b) (a < b) ? (a) : (b)
 struct cpu cpus[NCPU];
-struct Queue queuetable[QCOUNT];
+struct PriorityQueue queuetable[QCOUNT];
 struct proc proc[NPROC];
 
 struct proc *initproc;
@@ -568,6 +568,7 @@ fcfssched(struct cpu* c) {
 void
 ageprocesses(void) {
   struct proc* p;
+
   for (p = proc; p < &proc[NPROC]; p++) {
     if (p->state == RUNNABLE && ticks >= p->queueentertime + AGE) {
       remove(&queuetable[p->queuelevel], p);

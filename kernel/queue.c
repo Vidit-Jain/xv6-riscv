@@ -7,7 +7,7 @@
 #include "defs.h"
 
 void
-push(struct Queue* q, struct proc* p) {
+push(struct PriorityQueue* q, struct proc* p) {
   q->queue[q->front++] = p;
   q->front %= QSIZE;
   if (q->front == q->back) {
@@ -17,7 +17,7 @@ push(struct Queue* q, struct proc* p) {
 }
 
 struct proc*
-pop(struct Queue* q)
+pop(struct PriorityQueue* q)
 {
   if (q->back == q->front) {
     panic("Empty queue pop");
@@ -30,7 +30,7 @@ pop(struct Queue* q)
 }
 
 void
-remove(struct Queue* q, struct proc* p) {
+remove(struct PriorityQueue* q, struct proc* p) {
   if (p->queuestate == NOTQUEUED) return;
   for (int i = q->back; i != q->front; i = (i + 1) % QSIZE) {
     if (q->queue[i] == p) {
@@ -45,6 +45,6 @@ remove(struct Queue* q, struct proc* p) {
 }
 
 int
-empty(struct Queue q) {
+empty(struct PriorityQueue q) {
   return (q.front - q.back + QSIZE) % QSIZE == 0;
 }

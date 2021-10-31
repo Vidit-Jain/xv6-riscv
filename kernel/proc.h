@@ -124,12 +124,12 @@ struct proc {
   uint etime;                   // When did the process exited
 };
 
-struct Queue {
+struct PriorityQueue {
   int front, back;
   struct proc* queue[QSIZE];
 };
-extern struct Queue queuetable[QCOUNT];
-void push(struct Queue* q, struct proc* p);
-struct proc* pop(struct Queue* q);
-void remove(struct Queue* q, struct proc* p);
-int empty(struct Queue q);
+extern struct PriorityQueue queuetable[QCOUNT];
+void push(struct PriorityQueue* q, struct proc* p);
+struct proc* pop(struct PriorityQueue* q);
+void remove(struct PriorityQueue* q, struct proc* p);
+int empty(struct PriorityQueue q);

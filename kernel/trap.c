@@ -82,7 +82,7 @@ usertrap(void)
       yield();
     else if (schedulingpolicy == 3) {
       struct proc *p = myproc();
-      if (p->queueruntime >= (1 << p->queuelevel)) {
+      if (p->runningticks >= (1 << p->queuelevel)) {
         p->queuelevel = min(p->queuelevel + 1, QCOUNT);
         yield();
       }
@@ -168,7 +168,7 @@ kerneltrap()
       yield();
     else if (schedulingpolicy == 3) {
       struct proc *p = myproc();
-      if (p->queueruntime >= (1 << p->queuelevel)) {
+      if (p->runningticks >= (1 << p->queuelevel)) {
         p->queuelevel = min(p->queuelevel + 1, QCOUNT);
         yield();
       }
