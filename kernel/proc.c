@@ -160,9 +160,9 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
-  acquire(&tickslock);
+//  acquire(&tickslock);
   p->createtime = ticks;
-  release(&tickslock);
+//  release(&tickslock);
   p->staticpriority = 60;
   p->tracemask = 0;
   p->scheduletick = 0;
@@ -485,10 +485,10 @@ updatetime() {
 void
 runprocess(struct proc* p, struct cpu* c) {
 
-  acquire(&tickslock);
+//  acquire(&tickslock);
   p->scheduletick = ticks;
   p->queueentertime = ticks;
-  release(&tickslock);
+//  release(&tickslock);
 
   p->queueruntime = 0;
   p->state = RUNNING;
@@ -499,9 +499,9 @@ runprocess(struct proc* p, struct cpu* c) {
 
   swtch(&c->context, &p->context);
 
-  acquire(&tickslock);
+//  acquire(&tickslock);
   p->queueentertime = ticks;
-  release(&tickslock);
+//  release(&tickslock);
 
   c->proc = 0;
 }
@@ -532,13 +532,11 @@ fcfssched(struct cpu* c) {
         changed = 1;
       }
       else {
-        acquire(&bestproc->lock);
         if (p->createtime < bestproc->createtime){
           release(&bestproc->lock);
           bestproc = p;
           changed = 1;
         }
-        release(&bestproc->lock);
       }
     }
     if (!changed)
@@ -627,10 +625,9 @@ pbssched(struct cpu* c) {
         changed = 1;
       }
       else {
-        acquire(&bestproc->lock);
-        if (pbsswap(proc, bestproc)) {
+        if (pbsswap(p, bestproc)) {
           release(&bestproc->lock);
-          bestproc = proc;
+          bestproc = p;
           changed = 1;
         }
       }
@@ -870,9 +867,7 @@ procdump(void)
     }
     printf("%s\t", state);
     if (schedulingpolicy == 2) {
-      acquire(&tickslock);
       printf("%d\t%d\t%d", p->runningticks, ticks - p->createtime - p->totalrtime, p->schedulecount);
-      release(&tickslock);
     }
     printf("\n");
   }
