@@ -157,10 +157,6 @@ char* syscallnames[] = {
 [SYS_trace]   "trace",
 [SYS_set_priority] "set_priority",
 };
-struct syscall_info {
-  const int argnum;
-  const char* name;
-};
 
 int syscallargc[] = {
 [SYS_fork] 0,

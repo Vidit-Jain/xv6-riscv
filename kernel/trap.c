@@ -90,8 +90,6 @@ usertrap(void)
   }
 
 
-  if (schedulingpolicy == 3) {
-  }
   usertrapret();
 }
 
