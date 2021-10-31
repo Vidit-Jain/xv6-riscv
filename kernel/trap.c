@@ -86,6 +86,9 @@ usertrap(void)
         p->queuelevel = min(p->queuelevel + 1, QCOUNT);
         yield();
       }
+      if (getpreempted(p->queuelevel)) {
+        yield();
+      }
     }
   }
 
@@ -167,6 +170,9 @@ kerneltrap()
       struct proc *p = myproc();
       if (p->queueruntime >= (1 << p->queuelevel)) {
         p->queuelevel = min(p->queuelevel + 1, QCOUNT);
+        yield();
+      }
+      if (getpreempted(p->queuelevel)) {
         yield();
       }
     }

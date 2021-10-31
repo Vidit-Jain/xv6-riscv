@@ -484,6 +484,16 @@ updatetime() {
     release(&p->lock);
   }
 }
+
+int
+getpreempted(int level) {
+  for (int i = 0; i < level; i++) {
+    if (!empty(queuetable[i])) {
+      return 1;
+    }
+  }
+  return 0;
+}
 // Lock process p before calling function
 void
 runprocess(struct proc* p, struct cpu* c) {
@@ -834,11 +844,11 @@ void
 procdump(void)
 {
   static char *states[] = {
-  [UNUSED]    "unused",
+  [UNUSED]    "unused  ",
   [SLEEPING]  "sleeping",
   [RUNNABLE]  "runnable",
-  [RUNNING]   "running",
-  [ZOMBIE]    "zombie"
+  [RUNNING]   "running ",
+  [ZOMBIE]    "zombie  "
   };
   struct proc *p;
   char *state;

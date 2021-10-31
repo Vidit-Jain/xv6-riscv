@@ -108,6 +108,7 @@ int             changepriority(int new_priority, int pid, int* old_dp);
 void            updatetime();
 int             dynamicpriority(struct proc* p);
 void            queuetableinit();
+int             getpreempted(int level);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
