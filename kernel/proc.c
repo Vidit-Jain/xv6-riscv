@@ -865,9 +865,14 @@ procdump(void)
     if (schedulingpolicy == 2) {
       printf("%d\t\t", dynamicpriority(p));
     }
+    else if (schedulingpolicy == 3) {
+      int priority = (p->queuelevel == NOTQUEUED) ? -1 : p->queuelevel;
+      printf("%d\t\t", priority);
+    }
     printf("%s\t", state);
-    if (schedulingpolicy == 2) {
-      printf("%d\t%d\t%d", p->runningticks, ticks - p->createtime - p->totalrtime, p->schedulecount);
+    if (schedulingpolicy == 2 || schedulingpolicy == 3) {
+      uint waittime = (schedulingpolicy == 2) ? (ticks - p->createtime - p->totalrtime) : (ticks - p->queueentertime);
+      printf("%d\t%d\t%d", p->runningticks, waittime, p->schedulecount);
     }
     printf("\n");
   }
