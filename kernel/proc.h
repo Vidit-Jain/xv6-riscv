@@ -117,7 +117,7 @@ struct proc {
   int queuelevel;
   int queueruntime;
   uint queueentertime;
-
+  uint q[QCOUNT];
 };
 
 struct Queue {

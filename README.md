@@ -59,3 +59,12 @@
 11. In `kernel/trap.c`, we only want to preempt the running process if the running time has exceeded `p->queuelevel`. If we need to preempt it, we decrease the priority (by increasing queue level value)
 12. To prevent aging, a function `ageprocesses` is implemented to check the queueentertime of every process every time mlfqsched is called, to check if any process has been waiting for more than `AGE` ticks (which has been set to 64). if so, the priority of that process is increased (decreasing queue level).
 
+
+## CPU Exploitation possibility
+As per the instructions, if a process voluntarily relinquishes control of the CPU before it's time slice is over, on returning the process enters the same queue instead of downgrading in priority.
+While this might be logical, and should work for a great percentage of time, there may be people who could be aware of this policy's design, and attempt to exploit it so that their processes get more priority than others, hence getting an unfair share of processing power.
+A person who knows how long the time slice is in each priority level, can design a process such that just before the time slice is about to expire, it can ask for a very small I/O request, hence relinquishing itself from the CPU, and rejoining the same priority level very quickly. Hence, it ends up avoiding the downgrade in priority level. Therefore the process can continue to be in the same priority level, taking most of the processor time by this.
+
+For example, say the first priority level has a time slice of 4 ticks. A process can be designed to run for 3 ticks, and then make an I/O request, such as requesting 1 byte from the disk. Hence, the I/O request will be satisfied quickly and it'll be put into the same queue at the end, avoiding the downgrade, and maintaining it's high priority.
+
+One way to counterract this is to not reset the time slice, hence if the process has used 3 ticks, after the I/O request it'll only have one tick left in the priority queue before priority downgrade.

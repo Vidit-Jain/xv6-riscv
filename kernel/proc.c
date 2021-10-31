@@ -160,9 +160,7 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
-//  acquire(&tickslock);
   p->createtime = ticks;
-//  release(&tickslock);
   p->staticpriority = 60;
   p->tracemask = 0;
   p->scheduletick = 0;
@@ -173,6 +171,9 @@ found:
   p->queuelevel = 0;
   p->queuestate = NOTQUEUED;
   p->queueentertime = 0;
+  for (int i = 0; i < QCOUNT; i++) {
+    p->q[i] = 0;
+  }
   return p;
 }
 
@@ -473,11 +474,13 @@ updatetime() {
     if (p->state == RUNNING) {
       p->runningticks++;
       p->totalrtime++;
-      if (schedulingpolicy == 3)
-        p->queueruntime++;
     }
     if (p->state == SLEEPING)
       p->sleepingticks++;
+    if (schedulingpolicy == 3 && p->queuestate == QUEUED) {
+      p->queueruntime++;
+      p->q[p->queuelevel]++;
+    }
     release(&p->lock);
   }
 }
@@ -851,7 +854,9 @@ procdump(void)
     printf("\trtime\twtime\tnrun\t");
   }
   if (schedulingpolicy == 3) {
-    printf("q0\tq1\tq2\tq3\tq4\t");
+    for (int i = 0; i < QCOUNT; i++) {
+      printf("q%d\t", i);
+    }
   }
   printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
@@ -872,7 +877,12 @@ procdump(void)
     printf("%s\t", state);
     if (schedulingpolicy == 2 || schedulingpolicy == 3) {
       uint waittime = (schedulingpolicy == 2) ? (ticks - p->createtime - p->totalrtime) : (ticks - p->queueentertime);
-      printf("%d\t%d\t%d", p->runningticks, waittime, p->schedulecount);
+      printf("%d\t%d\t%d\t", p->totalrtime, waittime, p->schedulecount);
+    }
+    if (schedulingpolicy == 3) {
+      for (int i = 0; i < QCOUNT; i++) {
+        printf("%d\t", p->q[i]);
+      }
     }
     printf("\n");
   }
