@@ -1,6 +1,8 @@
 # xv6-riscv
+Project which involved modifying the xv6 Operating System designed by MIT, implementing new system calls, and scheduling algorithms such as
+first-come-first-serve, priority-based, and multilevel feedback queue algorithms
 
-# Specification 1: syscall tracing
+## Specification 1: syscall tracing
 1. Created `strace.c` in `user/`, added `$U/_strace` to UPROGS in Makefile
 2. Added a variable `tracemask` in `struct proc` to keep track of what system calls to print by checking the bits in it.
 3. Created a `sys_trace()` function in `kernel/sysproc.c`, which assigns the passed value to the tracemask variable of the currently running process.
@@ -11,7 +13,7 @@
 7. In the function `syscall()`, we store the first argument before executing the syscall as it's modifies `a0` in the trapframe.
 8. After execution we check if the syscall executed is to be tracked. If it is, we print all the necessary info, the pid using `p->pid`, the syscall name using the `syscallnames` array, and the arguments in integer form by checking the arg count for the syscall using `syscallargc` and the values using the `argint()` function. The return value is stored in `a0` after execution of the syscall.
 
-# Specification 2: Scheduling
+## Specification 2: Scheduling
 1. Added support for passing macros when running `make`. If `make qemu SCHEDULER=MLFQ` is executed in the shell, then all the files will be compiled with a `-D MLFQ` flag, hence defining the macro specified in all files. (NOTE: Run make clean before changing the scheduler as the make file doesn't detect that it needs to recompile all files when a macro is changed)
 2. In `proc.c`, an extern variable `schedulingpolicy` is defined. 
     a. Round Robin (DEFSCHED) - 0
@@ -21,12 +23,12 @@
 3. The value of `schedulingpolicy` is assigned based on the macro defined. If no macro, or an incorrect macro is passed, the default round robin scheduler will be picked. Else, the corresponding scheduler is picked.
 4. To support various scheduling policies, the structure of the `scheduler()` function was changed. In the infinite loop, the value of `schedulingpolicy` decides which policy to be used. Each scheduling policy is implemented as a separate function, hence initially the default scheduler was made into a function that is called when `schedulingpolicy = 1`.
 5. A function `runprocess()` was created to reduce the code that needs to be rewritten, as we have to run a process in all 4 scheduling policy functions.
-## First Come First Served (FCFS)
+### First Come First Served (FCFS)
 1. To compare which process was created first, we store a value `createtime` in `struct proc`. In `allocproc()`, the variable is set to the current value of `ticks`.
 2. A function `fcfssched()` that is called by `scheduler()` is defined. It goes through all the `RUNNABLE` processes in the process array, and selects the process that has the lowest `createtime` value (created the earliest), and then runs the process.
 3. As FCFS is non-preemptive, we go to `usertrap()` and `kerneltrap()` in the `kernel/trap.c` file, and change the lines which check if `which_dev == 2` to yield, as this line checks if it's a clock interrupt, and if yes, it must yield. Instead, we only yield or check if we need to yield if the scheduling policies are default or MLFQ, else we make no attempt at yielding on a timer interrupt. 
 
-## Priority Based Scheduler (PBS)
+### Priority Based Scheduler (PBS)
 1. Created a variable `staticpriority` in `struct proc`. Is given a default value 60 in the `allocproc()` function, but can be changed by `setpriority()`.
 2. Created variables `runningticks` and `sleepingticks` in `struct proc` to keep track of the total ticks ran and the total ticks for which it was sleeping since it was last scheduled.
 3. Created a function `updatetime` that updates the values of `runningticks` and `sleepingticks`
@@ -45,7 +47,7 @@
 5. Added the `sys_set_priority` function to the array of function pointers `syscalls` in `kernel/syscall.c`.
 6. Added macro `SYS_set_priority` macro in `kernel/syscall.h`, added entry for `set_priority` in `user/usys.pl`, and definition of the syscall in `user/user.h`.
 
-## Multilevel Feedback Queue (MLFQ)
+### Multilevel Feedback Queue (MLFQ)
 1. Defined macros `QCOUNT` and `QSIZE` to represent the number of priority queues and the size of each queue.
 2. Created an enum `queued`, and a variable `queuestate` in `struct proc` to store whether the process is in a queue in MLFQ or not.
 3. Created variables `queuelevel`, `queueruntime`, `queueentertime` in `struct proc` to keep track of the process, and initialize all to 0 in `allocproc()`.
@@ -61,7 +63,7 @@
 13. To preempt processes when a higher priority process is added to the queue, a function `getpreempt()` checks if the levels above the current processes queuelevel are empty. If any one of them isn't, then we yield in the `usertrap` and `kerneltrap` functions on a timer interrupt.
 
 
-## Possible exploitation of implemented scheduling algorithm
+### Possible exploitation of implemented scheduling algorithm
 As per the instructions, if a process voluntarily relinquishes control of the CPU before it's time slice is over, on returning the process enters the same queue instead of downgrading in priority.
 
 While this might be logical, and should work for a great percentage of time, there may be people who could be aware of this policy's design, and attempt to exploit it so that their processes get more priority than others, hence getting an unfair share of processing power.
@@ -72,7 +74,7 @@ For example, say the first priority level has a time slice of 4 ticks. A process
 
 One way to counterract this is to not reset the time slice, hence if the process has used 3 ticks, after the I/O request it'll only have one tick left in the priority queue before priority downgrade.
 
-# Specification 3: procdump
+## Specification 3: procdump
 1. procdump just requires a few more variables in `struct proc` to have all the necessary details to display.
 2. Variables like `totalruntime` were implemented to keep track of the total time it has run since its existence. 
 3. pid, state are displayed using the existing variables in `struct proc`
