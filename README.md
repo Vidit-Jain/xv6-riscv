@@ -61,7 +61,7 @@
 13. To preempt processes when a higher priority process is added to the queue, a function `getpreempt()` checks if the levels above the current processes queuelevel are empty. If any one of them isn't, then we yield in the `usertrap` and `kerneltrap` functions on a timer interrupt.
 
 
-## CPU Exploitation possibility
+## Possible exploitation of implemented scheduling algorithm
 As per the instructions, if a process voluntarily relinquishes control of the CPU before it's time slice is over, on returning the process enters the same queue instead of downgrading in priority.
 
 While this might be logical, and should work for a great percentage of time, there may be people who could be aware of this policy's design, and attempt to exploit it so that their processes get more priority than others, hence getting an unfair share of processing power.
